@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSA Semester Question Compiler</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Custom scrollbar for question text containers */
+        .question-text-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .question-text-scroll::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 3px;
+        }
+        .question-text-scroll::-webkit-scrollbar-track {
+            background-color: #f9fafb;
+        }
+        /* Ensure responsive image scaling */
+        .question-image {
+            max-width: 100%;
+            height: auto;
+            max-height: 20rem; /* Limit height on larger screens */
+        }
+        @media (max-width: 768px) {
+            .question-image {
+                max-height: 12rem; /* Shorter height on mobile */
+            }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="app" class="max-w-7xl mx-auto">
+        <header class="mb-8 p-4 md:p-6 bg-white shadow-xl rounded-xl">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-800 mb-2">Data Structures & Algorithms (DSA) Question Bank</h1>
+            <p class="text-sm md:text-base text-gray-500">Compiled questions from multiple IIUC CCE-2301 Semester End Examinations.</p>
+        </header>
+
+        <!-- Filter Controls -->
+        <div class="bg-white p-4 md:p-6 shadow-xl rounded-xl mb-8 flex flex-col md:flex-row gap-4 items-stretch">
+            <div class="flex-1">
+                <label for="semester-filter" class="block text-sm font-medium text-gray-700 mb-1">Filter by Semester:</label>
+                <select id="semester-filter" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out bg-white text-gray-700 shadow-sm">
+                    <option value="all">All Semesters</option>
+                </select>
+            </div>
+            <div class="flex-1">
+                <label for="common-filter" class="block text-sm font-medium text-gray-700 mb-1">Filter by Importance:</label>
+                <select id="common-filter" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out bg-white text-gray-700 shadow-sm">
+                    <option value="all">All Questions</option>
+                    <option value="important">Show Repeated Topics Only</option>
+                </select>
+            </div>
+            <div class="flex-1 md:self-end">
+                <button onclick="resetFilters()" class="w-full py-2 px-4 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition duration-150 ease-in-out mt-3 md:mt-0 shadow-sm">Reset Filters</button>
+            </div>
+        </div>
+
+        <!-- Question List -->
+        <div id="question-list" class="space-y-6">
+            <!-- Questions will be dynamically inserted here -->
+        </div>
+
+        <div id="no-results" class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg mt-8" role="alert">
+            <p class="font-bold">No Questions Found</p>
+            <p>Please adjust your filters or reset them to view all questions.</p>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-12 text-center text-gray-500 text-sm">
+            <p>&copy; Question Bank Compiled from IIUC CCE-2301 Semester End Examinations. Data structure and algorithms.</p>
+        </footer>
+    </div>
+
+    <script>
+        // --- DATA STRUCTURE: Array of Question Objects ---
+        const questionsData = [
+            // Spring 2025
+            { id: 'S25-Q1a', semester: 'Spring 2025', qNo: 'Q1. a)', marks: 4, coreTopic: 'Linked List Comparison', question: 'What is a **linked list**? Compare **singly linked list and doubly linked list** with example diagrams.', image: null },
+            { id: 'S25-Q1b', semester: 'Spring 2025', qNo: 'Q1. b)', marks: 6, coreTopic: null, question: 'You are given a singly linked list containing the following sequence of integers: `L-7-13-21-34-55-89 NULL`. i) Add 134 at the end ii) Delete 34. Now, Write the **algorithm** of the following operations.', image: null },
+            { id: 'S25-Q2a', semester: 'Spring 2025', qNo: 'Q2. a)', marks: 6, coreTopic: 'Tree Traversal', question: 'Traverse the tree in **Pre-order and Post-order** manner and explain the difference.', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAHKAeADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G+l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            { id: 'S25-Q2b', semester: 'Spring 2025', qNo: 'Q2. b)', marks: 4, coreTopic: null, question: 'You are given the following list of integers in the order they are inserted into a Binary Search Tree (BST): `{45, 20, 60, 10, 30, 50, 70, 25, 35, 65}`. Write the algorithm for BST creation/insertion.', image: null },
+            { id: 'S25-Q2cOR', semester: 'Spring 2025', qNo: 'Q2. a) (OR)', marks: 10, coreTopic: 'Graph Traversal', question: 'i) Define **adjacency matrix** for the given graph. ii) Show each step for **DFS traversal** of the graph from node 0.', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAHGAfQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G+l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            { id: 'S25-Q3a', semester: 'Spring 2025', qNo: 'Q3. a)', marks: 4, coreTopic: 'Search Strategy', question: 'If you need to find a value among 17 million sorted data, which **searching technique** would you prefer and why?', image: null },
+            { id: 'S25-Q3b', semester: 'Spring 2025', qNo: 'Q3. b)', marks: 3, coreTopic: 'Binary Search Trace', question: 'If a list has 1000 elements, how many maximum comparisons will **Binary Search** take to find an element (or declare not found)? Show steps.', image: null },
+            { id: 'S25-Q3c', semester: 'Spring 2025', qNo: 'Q3. c)', marks: 3, coreTopic: 'Search Comparison', question: 'Compare **Linear Search and Binary Search** in terms of time complexity and efficiency.', image: null },
+            { id: 'S25-Q4a', semester: 'Spring 2025', qNo: 'Q4. a)', marks: 5, coreTopic: null, question: 'Assume a **hash table of size 5**. Create a hash function to store the keys-27, 17, 5, 9, 12. Show the stored key in the hash table.', image: null },
+            { id: 'S25-Q4b', semester: 'Spring 2025', qNo: 'Q4. b)', marks: 5, coreTopic: 'Hashing Collision', question: 'What happens if more than one key has same hash index? How can it be **resolved**? (Collision Resolution)', image: null },
+            { id: 'S25-Q5a', semester: 'Spring 2025', qNo: 'Q5. a)', marks: 5, coreTopic: 'Insertion Sort', question: 'Explain how **Insertion Sort** works with a step-by-step trace on `[7, 5, 3, 4, 1, 2, 6]`.' , image: null },
+            { id: 'S25-Q5b', semester: 'Spring 2025', qNo: 'Q5. b)', marks: 5, coreTopic: 'Heap Sort', question: 'Build a **max-heap** from the array `[3, 5, 9, 6, 8, 10]` and then show the sorted array using **Heap Sort**.', image: null },
+            { id: 'S25-Q5cOR', semester: 'Spring 2025', qNo: 'Q5. a) (OR)', marks: 2, coreTopic: 'Dynamic Programming', question: 'Explain the difference between **top-down (memorization) and bottom-up (tabulation) approaches in dynamic programming**.', image: null },
+            { id: 'S25-Q5dOR', semester: 'Spring 2025', qNo: 'Q5. b) (OR)', marks: 8, coreTopic: 'Dijkstra\'s Algorithm', question: 'Given the following graph, trace **Dijkstra\'s algorithm** step-by-step starting from node A and show the final shortest distance to all other nodes.', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAE3AaADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G+l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            // Autumn 2024
+            { id: 'A24-Q1a', semester: 'Autumn 2024', qNo: 'Q1. a)', marks: 3, coreTopic: 'Tree Terminology', question: 'Define the following terms with respect to tree: i. **Strictly Binary Tree** ii. **Sibling** iii. **Degree**', image: null },
+            { id: 'A24-Q1b', semester: 'Autumn 2024', qNo: 'Q1. b)', marks: 3, coreTopic: 'Tree Traversal', question: 'Find **Inorder and Postorder traversal** for the given binary tree.', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAE0AbADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G+l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            { id: 'A24-Q1c', semester: 'Autumn 2024', qNo: 'Q1. c)', marks: 4, coreTopic: 'BST Construction', question: 'Given the postorder traversal of a Binary Search Tree (BST) as follows: `10, 20, 40, 30, 60, 50, 75, 85, 80, 95, 110, 130, 120, 100, 90, 70`. **Construct the Binary Search Tree (BST)** from the given postorder traversal. Show each step of the construction process and draw the final BST.', image: null },
+            { id: 'A24-Q2a', semester: 'Autumn 2024', qNo: 'Q2. a)', marks: 4, coreTopic: 'Linked List vs Array', question: '"**Linked List is a flexible and dynamic data structure**" justify the statement with respect to other data structures.', image: null },
+            { id: 'A24-Q2b', semester: 'Autumn 2024', qNo: 'Q2. b)', marks: 6, coreTopic: null, question: 'Analyze the **deletion process in a doubly linked list** for the following cases: 1) Deleting the head node 2) Deleting a node in the middle', image: null },
+            { id: 'A24-Q2cOR', semester: 'Autumn 2024', qNo: 'Q2. a) (OR)', marks: 4, coreTopic: 'Circular Linked List', question: 'How would you detect if a given **linked list is circular** or not?', image: null },
+            { id: 'A24-Q2dOR', semester: 'Autumn 2024', qNo: 'Q2. b) (OR)', marks: 6, coreTopic: 'Circular List Insertion', question: 'Write an **algorithm to insert a new node with value 35 after the node with value 30**. Illustrate the modified linked list.', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAEUAQADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G+l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            { id: 'A24-Q3a', semester: 'Autumn 2024', qNo: 'Q3. a)', marks: 4, coreTopic: null, question: 'What is a **spanning tree**? Explain the difference between a spanning tree and a **minimum spanning tree**.', image: null },
+            { id: 'A24-Q3b', semester: 'Autumn 2024', qNo: 'Q3. b)', marks: 6, coreTopic: 'Dijkstra\'s Algorithm', question: 'Apply **Dijkstra\'s algorithm** and find the shortest path from the node S as the starting node to all other vertices in the following graph. Provide a list of the order in which the nodes were visited as well as the table showing the shortest path.', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAEsAQQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G+l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            { id: 'A24-Q4a', semester: 'Autumn 2024', qNo: 'Q4. a)', marks: 3, coreTopic: 'Hashing Collision', question: 'What is a **collision in hashing**? Why does it occur?', image: null },
+            { id: 'A24-Q4b', semester: 'Autumn 2024', qNo: 'Q4. b)', marks: 7, coreTopic: 'Hashing Probing', question: 'Design a **hash table of size 10** and resolve collisions using **quadratic probing** with the formula $h\'(k,l)=(h(k)+l^2) \\pmod{10}$. Insert the keys 15, 25, 35, 45, and 55. Evaluate the efficiency of the probing technique by calculating the number of probes required for each key.', image: null },
+            { id: 'A24-Q5a', semester: 'Autumn 2024', qNo: 'Q5. a)', marks: 3, coreTopic: null, question: 'Write an **algorithm for Selection sort**.', image: null },
+            { id: 'A24-Q5b', semester: 'Autumn 2024', qNo: 'Q5. b)', marks: 7, coreTopic: 'Sorting Comparison', question: 'Compare the number of swaps and comparisons made by the **Bubble Sort and Selection Sort** algorithms for the Input array `[64, 34, 25, 12, 22, 11, 90]`. Which algorithm performs fewer swaps and why?', image: null },
+            { id: 'A24-Q5cOR', semester: 'Autumn 2024', qNo: 'Q5. a) (OR)', marks: 3, coreTopic: 'Search Comparison', question: 'Can you think of a situation where **linear search** would be more practical or efficient than **binary search**?', image: null },
+            { id: 'A24-Q5dOR', semester: 'Autumn 2024', qNo: 'Q5. b) (OR)', marks: 7, coreTopic: 'Binary Search Trace', question: 'A sorted list is given below: `sorted_list = [3,7, 10, 14, 18, 21, 29, 35, 42, 50, 57, 63, 70, 77, 84, 91, 98]`. I. If the target element is 42, how many iterations does the **binary search** take to find the element? Describe each iteration. II. Assume the target element is 5, which is not in the list. What will be the final state of the low and high pointers when the algorithm concludes the element is not present?', image: null },
+            // Spring 2024
+            { id: 'S24-Q1a', semester: 'Spring 2024', qNo: 'Q1. a)', marks: 5, coreTopic: 'Tree Traversal', question: 'Define **tree traversal** and find **preorder and postorder traversal** for the given binary tree.', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAE3AfQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G5l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            { id: 'S24-Q1b', semester: 'Spring 2024', qNo: 'Q1. b)', marks: 5, coreTopic: 'BST Construction', question: 'Given the postorder traversal of a Binary Search Tree (BST) as follows: `[2, 4, 3, 8, 7, 5]`. **Construct the Binary Search Tree (BST)** from the given postorder traversal. Show each step of the construction process and draw the final BST.', image: null },
+            { id: 'S24-Q2a', semester: 'Spring 2024', qNo: 'Q2. a)', marks: 4, coreTopic: 'Circular Linked List', question: 'How would you detect if a given **linked list is circular** or not?', image: null },
+            { id: 'S24-Q2b', semester: 'Spring 2024', qNo: 'Q2. b)', marks: 6, coreTopic: 'Circular List Insertion', question: 'Write an **algorithm to insert a new node with a value of 35 after the node with a value of 30**. Illustrate the modified linked list.', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAEUAQADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G+l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            { id: 'S24-Q2cOR', semester: 'Spring 2024', qNo: 'Q2. a) (OR)', marks: 4, coreTopic: 'Linked List Comparison', question: 'Describe the structure of a **doubly linked list**. How does it differ from a **singly linked list**?', image: null },
+            { id: 'S24-Q2dOR', semester: 'Spring 2024', qNo: 'Q2. b) (OR)', marks: 6, coreTopic: null, question: 'Write a function to **Insert a new node at the beginning of a doubly linked list**. How does this differ from Insertion in a singly linked list?', image: null },
+            { id: 'S24-Q3a', semester: 'Spring 2024', qNo: 'Q3. a)', marks: 4, coreTopic: 'Prim\'s Algorithm', question: 'Find **minimum spanning tree** for the given graph below using **Prim\'s algorithm** (start from vertex A).', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAEiAagDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G+l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            { id: 'S24-Q3b', semester: 'Spring 2024', qNo: 'Q3. b)', marks: 6, coreTopic: 'Dijkstra\'s Algorithm', question: 'Apply **Dijkstra\'s algorithm** and find the shortest path from node S as the starting node to all other vertices in the following graph. Provide a list of the order in which the nodes were visited as well as the table showing the shortest path.', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAE+AfQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G+l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            { id: 'S24-Q3c', semester: 'Spring 2024', qNo: 'Q3. c)', marks: 3, coreTopic: null, question: 'Provide an example of one real-world problem that **Dijkstra\'s algorithm** solves.', image: null },
+            { id: 'S24-Q4a', semester: 'Spring 2024', qNo: 'Q4. a)', marks: 3, coreTopic: 'Hashing Collision', question: 'Define **collision in hashing**. What is the use of a **hash function**?', image: null },
+            { id: 'S24-Q4b', semester: 'Spring 2024', qNo: 'Q4. b)', marks: 7, coreTopic: 'Hashing Probing', question: 'Take an initially empty hash table with **ten slots**, with hash function $h(k)=k \\pmod{10}$, and collisions are resolved by **linear probing** with hash function $h\'(k,l)=(h(k)+l) \\pmod{10}$. Sketch what happens when Inserting the following sequence of keys into It: `35, 2, 18, 6, 3, 10, 8, 5, 11, 19`. And find the maximum probe value (l).', image: null },
+            { id: 'S24-Q5a', semester: 'Spring 2024', qNo: 'Q5. a)', marks: 3, coreTopic: null, question: 'What are the various factors to be considered In deciding a **sorting algorithm**?', image: null },
+            { id: 'S24-Q5b', semester: 'Spring 2024', qNo: 'Q5. b)', marks: 7, coreTopic: 'Insertion Sort', question: 'Examine the algorithm for **Insertion sort** and use it to sort the letters of the word "EDUCATION" In alphabetical order and show each pass separately.', image: null },
+            { id: 'S24-Q5cOR', semester: 'Spring 2024', qNo: 'Q5. a) (OR)', marks: 3, coreTopic: 'Search Comparison', question: 'Can you think of a situation where **linear search** would be more practical or efficient than **binary search**?', image: null },
+            { id: 'S24-Q5dOR', semester: 'Spring 2024', qNo: 'Q5. b) (OR)', marks: 7, coreTopic: 'Binary Search Trace', question: 'A sorted list is given below: `sorted list [3, 7, 10, 14, 18, 21, 29, 35, 42, 50, 57, 63, 70, 77, 84, 91, 98]`. I. If the target element is 42, how many iterations does the **binary search** take to find the element? Describe each iteration. II. Assume the target element is 5, which is not in the list. What will be the final state of the low and high pointers when the algorithm concludes the element is not present?', image: null },
+            // Autumn 2023
+            { id: 'A23-Q1a', semester: 'Autumn 2023', qNo: 'Q1. a)', marks: 4, coreTopic: 'BST Operations', question: 'Show the resultant BST after applying the following operations in sequence on the given tree. (i) **Delete 8**, (ii) **Insert 9** and (iii) **Delete 7**.', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAEfAaADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G+l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            { id: 'A23-Q1b', semester: 'Autumn 2023', qNo: 'Q1. b)', marks: 6, coreTopic: null, question: 'Given **In-order and Pre-order traversal**, find **post-order traversal**. In-order: `Y, B, K, C, F, A, G, X, E, D, H, Z`. Pre-order: `G, B, Y, A, C, K F, X, D, E, Z, H`.', image: null },
+            { id: 'A23-Q2a', semester: 'Autumn 2023', qNo: 'Q2. a)', marks: 4, coreTopic: null, question: 'What is a **header node**? Explain its importance.', image: null },
+            { id: 'A23-Q2b', semester: 'Autumn 2023', qNo: 'Q2. b)', marks: 6, coreTopic: null, question: 'Write user user-defined C function to **insert and delete a node at/from the end in a doubly linked list**.', image: null },
+            { id: 'A23-Q2cOR', semester: 'Autumn 2023', qNo: 'Q2. a) (OR)', marks: 4, coreTopic: 'Linked List vs Array', question: 'Describe the **advantages of a linked list over the array**.', image: null },
+            { id: 'A23-Q2dOR', semester: 'Autumn 2023', qNo: 'Q2. b) (OR)', marks: 6, coreTopic: null, question: 'Write a user-defined C function to **insert and delete a node at/from a specific location in a singly linked list**.', image: null },
+            { id: 'A23-Q3a', semester: 'Autumn 2023', qNo: 'Q3. a)', marks: 4, coreTopic: null, question: 'Explain the following with reference to graphs. (i) **Weighted Graph** and (ii) **Connected Graph**.', image: null },
+            { id: 'A23-Q3b', semester: 'Autumn 2023', qNo: 'Q3. b)', marks: 6, coreTopic: 'Dijkstra\'s Algorithm', question: 'Apply **Dijkstra\'s algorithm** for the following graph with Node S as the starting node.', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAEsAQQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G+l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            { id: 'A23-Q4a', semester: 'Autumn 2023', qNo: 'Q4. a)', marks: 4, coreTopic: 'Hashing Collision', question: 'How can **open addressing** be used for **collision resolution**?', image: null },
+            { id: 'A23-Q4b', semester: 'Autumn 2023', qNo: 'Q4. b)', marks: 6, coreTopic: 'Hashing Chaining', question: 'Demonstrate what happens when we Insert the keys `5, 28, 19, 15, 20, 33, 12, 17; and 10` into a hash table with collisions resolved by **chaining**. Let the table have 9 slots, and the hash function is $h(k)=k \\pmod{9}$. What is the resultant hash table and calculate the **load factor**?', image: null },
+            { id: 'A23-Q5a', semester: 'Autumn 2023', qNo: 'Q5. a)', marks: 4, coreTopic: 'Insertion Sort', question: 'Write an **algorithm for insertion sort**.', image: null },
+            { id: 'A23-Q5b', semester: 'Autumn 2023', qNo: 'Q5. b)', marks: 6, coreTopic: 'Bubble Sort Principle', question: '"If no interchanges occurred, then all the elements must be sorted and no further passes are required." Which sorting technique works on this principle? Apply the same sorting technique on the following data to sort them in ascending order: `11, 15, 13, 14, 2, 8, 10`. (Bubble Sort Principle)', image: null },
+            { id: 'A23-Q5cOR', semester: 'Autumn 2023', qNo: 'Q5. a) (OR)', marks: 4, coreTopic: null, question: 'Write an **algorithm for sequential search**.', image: null },
+            { id: 'A23-Q5dOR', semester: 'Autumn 2023', qNo: 'Q5. b) (OR)', marks: 6, coreTopic: 'Binary Search Trace', question: ' "**Binary search is a searching algorithm that works efficiently with a sorted list**" - Justify the statement by applying the technique to the following data `1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21` and search for the value 19.', image: null },
+            // Spring 2023
+            { id: 'S23-Q1a', semester: 'Spring 2023', qNo: 'Q1. a)', marks: 3, coreTopic: 'Tree Terminology', question: 'Define terms with respect to tree: I. **Strictly Binary Tree** II. **Sibling** III. **Degree**', image: null },
+            { id: 'S23-Q1b', semester: 'Spring 2023', qNo: 'Q1. b)', marks: 7, coreTopic: 'BST Construction', question: '**Construct Binary Search Tree (BST)** for the following sequence and find **In-order traversal** for the same. `38, 13, 51, 10, 12, 40, 84, 25, 89, 37, 66, 95`.', image: null },
+            { id: 'S23-Q2a', semester: 'Spring 2023', qNo: 'Q2. a)', marks: 3, coreTopic: 'Linked List vs Array', question: '"**Linked List is a flexible and dynamic data structure**" Justify the statement with respect to other data structures.', image: null },
+            { id: 'S23-Q2b', semester: 'Spring 2023', qNo: 'Q2. b)', marks: 7, coreTopic: null, question: 'Write an algorithm to I. **Insert a node in a Circular linked list at the FIRST position**. II. **Delete a node from the END of the Circular linked list**.', image: null },
+            { id: 'S23-Q2cOR', semester: 'Spring 2023', qNo: 'Q2. a) (OR)', marks: 3, coreTopic: 'Linked List Comparison', question: 'Explain **advantages of Doubly Linked List over Singly Linked List**.', image: null },
+            { id: 'S23-Q2dOR', semester: 'Spring 2023', qNo: 'Q2. b) (OR)', marks: 7, coreTopic: null, question: 'Write an algorithm to I. **Insert a new node in a Doubly linked list after a given node**. II. **Delete a node in a Doubly linked list after a given node**.', image: null },
+            { id: 'S23-Q3a', semester: 'Spring 2023', qNo: 'Q3. a)', marks: 3, coreTopic: null, question: 'Explain **Minimum Spanning Tree (MST)** with it\'s applications.', image: null },
+            { id: 'S23-Q3b', semester: 'Spring 2023', qNo: 'Q3. b)', marks: 7, coreTopic: 'Kruskal\'s Algorithm', question: 'Apply **Kruskal\'s algorithm** in the graph given below to find minimum spanning tree and calculate total cost of the tree.', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAE3AiADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICRAA/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBSEGEk1hByITMiMUJRWhMxXwJFKyJhYmgzQzQ5bB0jVSCA8qNlXwJFMjsmYzK3V2B5dE9qTjFgbYlGaXV5c3R1anl7d3h5agDf4BAxIC0bBBY4S0M+Wl49eH2Wl5d8f4R+j45+mF3l8X6G+l7W+j/W9H2W/94t7y/98H93l/S9F7X3/Ad7f9x6X7/4C+i/S+i/W9H3l+k6b9y/9z2/f/oP/v/h/j/c9H7f6R/k6b+r9f6b9z3/f/k6b+v/d/h/v/b/r/k/e9/8b/l6X6/wDH//2Q==' },
+            { id: 'S23-Q4a', semester: 'Spring 2023', qNo: 'Q4. a)', marks: 3, coreTopic: null, question: 'Discuss the **qualities of a good hash function**.', image: null },
+            { id: 'S23-Q4b', semester: 'Spring 2023', qNo: 'Q4. b)', marks: 7, coreTopic: 'Hashing Chaining', question: 'Build a **chained hash table of 10 memory locations**. Insert the keys: `131, 3, 4, 21, 61, 24, 7, 97, 8, 9` in hash table using **Chaining**. Use $h(k)=k \\pmod{m}$, $[m=10]$. What is the resultant hash table and calculate the **load factor**.', image: null },
+            { id: 'S23-Q5a', semester: 'Spring 2023', qNo: 'Q5. a)', marks: 3, coreTopic: 'Search Comparison', question: 'Compare **Sequential Searching with Binary Searching** in detail.', image: null },
+            { id: 'S23-Q5b', semester: 'Spring 2023', qNo: 'Q5. b)', marks: 7, coreTopic: null, question: 'Search the number 50 from the given data using **Binary Search technique**. Illustrate the searching process. `10, 14, 20, 39, 41, 45, 49, 50, 60`.', image: null },
+            { id: 'S23-Q5cOR', semester: 'Spring 2023', qNo: 'Q5. a) (OR)', marks: 3, coreTopic: null, question: 'What do you mean by **Internal and External Sorting**?', image: null },
+            { id: 'S23-Q5dOR', semester: 'Spring 2023', qNo: 'Q5. b) (OR)', marks: 7, coreTopic: 'Merge Sort', question: 'Examine the algorithm for **Merge Sort** and sort the following array: `20, 10, 5, 15, 25, 30, 50, 35`.', image: null },
+        ];
+
+        // Map for tracking repetition history across all semesters
+        const repetitionHistory = {
+            'Linked List Comparison': ['Spring 2025', 'Spring 2024', 'Spring 2023'],
+            'Tree Traversal': ['Spring 2025', 'Autumn 2024', 'Spring 2024'],
+            'BST Construction': ['Autumn 2024', 'Spring 2024', 'Spring 2023'],
+            'Dijkstra\'s Algorithm': ['Spring 2025', 'Autumn 2024', 'Spring 2024', 'Autumn 2023'],
+            'Hashing Collision': ['Spring 2025', 'Autumn 2024', 'Spring 2024', 'Autumn 2023'],
+            'Hashing Chaining': ['Autumn 2023', 'Spring 2023'],
+            'Insertion Sort': ['Spring 2025', 'Spring 2024', 'Autumn 2023'],
+            'Search Comparison': ['Spring 2025', 'Autumn 2024', 'Spring 2024', 'Spring 2023'],
+            'Binary Search Trace': ['Spring 2025', 'Autumn 2024', 'Spring 2024', 'Autumn 2023'],
+            'Linked List vs Array': ['Autumn 2024', 'Autumn 2023', 'Spring 2023'],
+            'Circular Linked List': ['Autumn 2024', 'Spring 2024'],
+            'Circular List Insertion': ['Autumn 2024', 'Spring 2024'],
+            'Tree Terminology': ['Autumn 2024', 'Spring 2023'],
+            // Topics with only one appearance but still highly relevant
+            'Graph Traversal': ['Spring 2025'],
+            'Heap Sort': ['Spring 2025'],
+            'BST Operations': ['Autumn 2023'],
+            'Kruskal\'s Algorithm': ['Spring 2023'],
+            'Prim\'s Algorithm': ['Spring 2024'],
+            'Hashing Probing': ['Autumn 2024', 'Spring 2024'],
+            'Sorting Comparison': ['Autumn 2024'],
+        };
+
+        // --- CORE RENDERING LOGIC ---
+
+        // Function to safely insert Markdown/LaTeX content
+        function insertQuestionText(element, htmlContent) {
+            // Replace Markdown bold/italics
+            let processedContent = htmlContent
+                .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') // Bold
+                .replace(/\*(.*?)\*/g, '<i>$1</i>'); // Italics
+
+            // Wrap math equations with special class for better display
+            // Matches $...$ or $h'(...)$ for inline math/formula
+            processedContent = processedContent.replace(/\$.*?\$/g, (match) => {
+                return '<code class="text-indigo-600 bg-indigo-50 px-1 rounded text-sm">' + match.replace(/\$/g, '') + '</code>';
+            });
+
+            element.innerHTML = processedContent;
+        }
+
+        function getRepetitionTag(q) {
+            const topic = q.coreTopic;
+            if (!topic || !repetitionHistory[topic]) return '';
+
+            const history = repetitionHistory[topic];
+            // Filter out the current semester from the history display
+            const otherSemesters = history.filter(s => s !== q.semester);
+            
+            const isRepeated = history.length > 1;
+
+            if (!isRepeated && history.length === 1) {
+                // Topic is important but only appeared once so far
+                return `<span class="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full shadow-md transition-all duration-300">
+                            ⭐ Core Topic: ${topic}
+                        </span>`;
+            } else if (isRepeated) {
+                // Topic has appeared in multiple semesters
+                const semestersList = otherSemesters.join(', ').replace(/, ([^,]*)$/, ' & $1');
+                
+                return `<span class="inline-block bg-red-100 text-red-800 text-xs font-semibold px-3 py-1 rounded-full shadow-md transition-all duration-300 cursor-pointer group relative">
+                            🚨 Repeated Topic: ${topic}
+                            <span class="absolute top-full mt-2 hidden group-hover:block w-64 p-2 bg-gray-800 text-white text-xs rounded-lg shadow-xl z-10 whitespace-normal transform -translate-x-1/2 left-1/2">
+                                Also appeared in: ${semestersList || 'N/A'}
+                            </span>
+                        </span>`;
+            }
+            return '';
+        }
+
+
+        function renderQuestions(data) {
+            const list = document.getElementById('question-list');
+            list.innerHTML = '';
+            const noResults = document.getElementById('no-results');
+
+            if (data.length === 0) {
+                noResults.classList.remove('hidden');
+                return;
+            } else {
+                noResults.classList.add('hidden');
+            }
+
+            data.forEach(q => {
+                const card = document.createElement('div');
+                
+                // Determine card color based on repetition status
+                const isRepeatedTopic = q.coreTopic && repetitionHistory[q.coreTopic] && repetitionHistory[q.coreTopic].length > 1;
+                const cardClass = isRepeatedTopic 
+                    ? 'border-2 border-red-500 bg-red-50' 
+                    : 'border border-gray-100 bg-white';
+
+                card.className = `shadow-xl rounded-xl p-4 md:p-6 transition transform hover:shadow-2xl hover:scale-[1.005] duration-300 ${cardClass}`;
+
+                // Header and Marks
+                const header = document.createElement('div');
+                header.className = 'flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-200 pb-3 mb-3';
+                header.innerHTML = `
+                    <div>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">${q.semester}</span>
+                        <h2 class="text-xl md:text-2xl font-bold text-gray-900 mt-1">${q.qNo}</h2>
+                    </div>
+                    <div class="flex items-center space-x-2 mt-2 sm:mt-0">
+                        <span class="text-3xl font-extrabold text-blue-600">${q.marks}</span>
+                        <span class="text-xs font-medium text-gray-500">MARKS</span>
+                    </div>
+                `;
+                card.appendChild(header);
+
+                // Repetition Tag
+                const tagContainer = document.createElement('div');
+                tagContainer.className = 'mb-3';
+                tagContainer.innerHTML = getRepetitionTag(q);
+                card.appendChild(tagContainer);
+
+                // Question Text and Image Container
+                const contentContainer = document.createElement('div');
+                contentContainer.className = 'flex flex-col lg:flex-row gap-6';
+
+                // Question Text
+                const qTextWrapper = document.createElement('div');
+                qTextWrapper.className = `flex-1 ${q.image ? 'lg:w-1/2' : 'w-full'}`;
+                const qText = document.createElement('p');
+                qText.className = 'text-gray-700 leading-relaxed max-h-40 overflow-y-auto question-text-scroll text-base md:text-lg';
+                insertQuestionText(qText, q.question);
+                qTextWrapper.appendChild(qText);
+                contentContainer.appendChild(qTextWrapper);
+
+                // Image/Diagram (if present)
+                if (q.image) {
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'lg:w-1/2 w-full pt-4 lg:pt-0';
+                    imgContainer.innerHTML = `
+                        <p class="text-sm font-semibold text-gray-600 mb-2 border-t lg:border-t-0 pt-4 lg:pt-0">Diagram/Image:</p>
+                        <div class="p-2 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex justify-center shadow-md">
+                            <img src="${q.image}" alt="Diagram for ${q.qNo} - ${q.semester}" class="question-image rounded object-contain">
+                        </div>
+                    `;
+                    contentContainer.appendChild(imgContainer);
+                }
+
+                card.appendChild(contentContainer);
+                list.appendChild(card);
+            });
+        }
+
+        // --- FILTERING & INITIALIZATION ---
+
+        function getUniqueSemesters() {
+            // Use Set to get unique semesters and sort them from newest to oldest
+            const semesters = new Set(questionsData.map(q => q.semester));
+            return Array.from(semesters).sort((a, b) => b.localeCompare(a));
+        }
+
+        function populateSemesterFilter() {
+            const select = document.getElementById('semester-filter');
+            const uniqueSemesters = getUniqueSemesters();
+            
+            uniqueSemesters.forEach(semester => {
+                const option = document.createElement('option');
+                option.value = semester;
+                option.textContent = semester;
+                select.appendChild(option);
+            });
+        }
+
+        function applyFilters() {
+            const semesterFilter = document.getElementById('semester-filter').value;
+            const commonFilter = document.getElementById('common-filter').value;
+
+            const filteredData = questionsData.filter(q => {
+                const passesSemester = semesterFilter === 'all' || q.semester === semesterFilter;
+                
+                let passesCommon = true;
+                if (commonFilter === 'important') {
+                    // Filter to only show topics that have appeared in more than one semester
+                    passesCommon = q.coreTopic && repetitionHistory[q.coreTopic] && repetitionHistory[q.coreTopic].length > 1;
+                }
+
+                return passesSemester && passesCommon;
+            });
+
+            renderQuestions(filteredData);
+        }
+
+        function resetFilters() {
+            document.getElementById('semester-filter').value = 'all';
+            document.getElementById('common-filter').value = 'all';
+            applyFilters();
+        }
+
+        // Event Listeners and Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            populateSemesterFilter();
+            
+            document.getElementById('semester-filter').addEventListener('change', applyFilters);
+            document.getElementById('common-filter').addEventListener('change', applyFilters);
+
+            // Initial render
+            applyFilters();
+        });
+    </script>
+</body>
+</html>
